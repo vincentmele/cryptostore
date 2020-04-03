@@ -44,6 +44,7 @@ class Aggregator(Process):
             cache = Redis(ip=self.config.redis['ip'],
                           port=self.config.redis['port'],
                           socket=self.config.redis.socket,
+                          password=self.config.redis.password,
                           del_after_read=self.config.redis['del_after_read'],
                           flush=self.config.redis['start_flush'],
                           retention=self.config.redis.retention_time if 'retention_time' in self.config.redis else None)
