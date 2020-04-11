@@ -34,46 +34,46 @@ class TimescaleDB(Store):
         self.user = config.get('user')
         self.pw = config.get('pw')
         self.db = config.get('db')
+        self.page_size = config.get('page_size', 5000)
+        self.chunk_interval = config.get('chunk_interval', 12) # in hours
         self.table = None
         self.table_exists = False
         self.conn = None  # StorageEngines.timescaledb.TimeseriesDB(connection)
         self._connect()
 
     def _connect(self):
-        if self.conn is None:
+        if self.conn is None or not self._is_alive():
             try:
                 self.conn = psycopg2.connect(user=self.user, password=self.pw, database=self.db, host=self.host)
             except Exception as e:
                 print('Error connecting to timescaledb postgres instance. ' + str(e))
 
+    def _is_alive(self):
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute('SELECT 1')
+            return True
+        except psycopg2.OperationalError:
+            return False
+
     def aggregate(self, data):
-        # We're going to set an idx that increments for each item in the data that has the same timestamp
-        # Then, make timestamps conform to postgres
-        # Finally, set feed and id to None if they don't exist in the data feed
-       # ts_indicies = {}
-        for entry in data:
-
-            entry['timestamp'] = dt.fromtimestamp(entry['timestamp'], timezone.utc )
-            entry['receipt_timestamp'] = dt.fromtimestamp(entry['receipt_timestamp'], timezone.utc )
-
-            entry['feed'] = entry.get('feed')
-            entry['id'] = entry.get('id')
-
         self.data = data
 
     def write(self, exchange, data_type, pair, timestamp):
         if not self.data:
             return
 
-        for entry in self.data: # todo: is this the best place for this?
+        for entry in self.data:
+            entry['timestamp'] = dt.fromtimestamp(entry['timestamp'], timezone.utc )
+            entry['receipt_timestamp'] = dt.fromtimestamp(entry['receipt_timestamp'], timezone.utc )
+            entry['feed'] = entry.get('feed', exchange)
+            entry['id'] = entry.get('id')
             entry['pair'] = pair
-            entry['feed'] = exchange
 
         table = self._set_table(exchange, data_type, pair)
 
         self._connect()
-
-        self._check_if_table_exists(data_type, table)
+        self._create_table_if_not_exists(data_type, table)
         self._insert_data(table, data_type)
 
     def _set_table(self, exchange, data_type, pair = None):
@@ -81,7 +81,7 @@ class TimescaleDB(Store):
         self.table = f'{data_type}_{exchange}'.lower()
         return self.table
 
-    def _check_if_table_exists(self, data_type, table, schema='public'): #todo: check schema for hypertables
+    def _create_table_if_not_exists(self, data_type, table):
         if self.table_exists:
             return True
         else:
@@ -146,63 +146,77 @@ class TimescaleDB(Store):
                 self.conn.commit()
                 cur.execute(f'CREATE INDEX ON {table} (feed, pair);')
                 cur.execute(f'SELECT create_hypertable(%s, %s);', (table, 'timestamp',))
+                if data_type == L2_BOOK or data_type == L3_BOOK:
+                    cur.execute(f"SELECT set_chunk_time_interval(%s, %s * interval '1 hours');", (table, self.chunk_interval ))
+                else:
+                    cur.execute(f"SELECT set_chunk_time_interval(%s, %s * interval '1 hours');", (table, self.chunk_interval * 2))
+
+                cur.execute(f'ALTER TABLE {table} SET ('
+                            f' timescaledb.compress, '
+                            f'timescaledb.compress_segmentby = "feed, pair"'
+                            f');')
+                cur.execute(f"SELECT add_compress_chunks_policy(%s, %s * interval '1 hour');", (table, self.chunk_interval * 3))
+
                 self.conn.commit()
             except Exception as e:
                 self.conn.rollback()
+                with self.conn.cursor as cur:
+                    cur.execute("DROP TABLE {table};", table)
+                self.conn.commit()
                 print('error creating database: ' + str(e))
 
     def _insert_data(self, table, data_type):
         if self.data is None:
             return
-        # use copy_from instead of executemany to ease the strain on the database server importing the data
 
-       # tmp_table_query = f'INSERT INTO {table} ' \
-       #                   f'SELECT DISTINCT ON (time) * ' \
-       #                   f'FROM source ON CONFLICT DO NOTHING'
         insert_sql = ''
         template = ''
         if data_type == TRADES:
             if id in self.data:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, side, id, amount, price, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, side, id, amount, price, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s, %(feed)s, %(pair)s, %(side)s, %(id)s, %(amount)s, %(price)s, %(receipt_timestamp)s)'
             else:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, side, amount, price, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, side, amount, price, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s, %(feed)s, %(pair)s, %(side)s, %(amount)s, %(price)s, %(receipt_timestamp)s)'
 
         elif data_type == TICKER:
             if id in self.data:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, id, bid, ask, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, id, bid, ask, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s, %(feed)s, %(pair)s, %(id)s, %(bid)s, %(ask)s, %(receipt_timestamp)s)'
             else:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, bid, ask, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, bid, ask, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s, %(feed)s, %(pair)s, %(bid)s, %(ask)s, %(receipt_timestamp)s)'
         elif data_type == L3_BOOK or data_type == L2_BOOK:
             if id in self.data:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, delta, side, id, size, price, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, delta, side, id, size, price, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s, %(feed)s, %(pair)s, %(delta)s, %(side)s, %(id)s, %(size)s, %(price)s, %(receipt_timestamp)s)'
             else:
-                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, delta, side, size, price, receipt_timestamp) VALUES  %s "
+                insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, delta, side, size, price, receipt_timestamp) VALUES  %s " \
+                             f"ON CONFLICT DO NOTHING"
                 template = '(%(timestamp)s,  %(feed)s, %(pair)s, %(delta)s, %(side)s, %(size)s, %(price)s, %(receipt_timestamp)s)'
 
         elif data_type == FUNDING:
             return NotImplemented
         elif data_type == OPEN_INTEREST:
-            insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, open_interest, receipt_timestamp) VALUES  %s "
+            insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, open_interest, receipt_timestamp) VALUES  %s " \
+                         f"ON CONFLICT DO NOTHING"
             template = '(%(timestamp)s, %(feed)s, %(pair)s, %(open_interest)s, %(receipt_timestamp)s)'
 
         LOG.info("Writing %d documents to TimescaleDB", len(self.data))
         starttime = timeit.default_timer()
         try:
             with self.conn.cursor() as cur:
-                #for c in chunk(self.data, 5000):
-                    # For each chunk,
-                    # create a csv in memory,
-                    # copy csv to temp table,
-                    # copy temp table to main table.
-                psycopg2.extras.execute_values(cur, insert_sql, self.data, template=template, page_size=5000)
+                psycopg2.extras.execute_values(cur, insert_sql, self.data, template=template, page_size=self.page_size)
                 self.conn.commit()
-                LOG.info("Took %f to write %d documents to TimescaleDB.",
-                         round(timeit.default_timer() - starttime, 2), len(self.data))
+                LOG.info("Took %fs to write %d documents to TimescaleDB. %f doc/s.",
+                         round(timeit.default_timer() - starttime, 6),
+                         len(self.data),
+                         round(len(self.data) / (timeit.default_timer() - starttime), 6))
         except Exception as e:
             print(e)
             self.conn.rollback()
@@ -224,7 +238,15 @@ class TimescaleDB(Store):
             return None
 
 
-"""            columns = list(self.data[0].keys())
+"""            # old code to possibly use csv import for bulk loading, probably should use asuncpg instead
+                
+                # use copy_from instead of executemany to ease the strain on the database server importing the data
+
+               # tmp_table_query = f'INSERT INTO {table} ' \
+               #                   f'SELECT DISTINCT ON (time) * ' \
+               #                   f'FROM source ON CONFLICT DO NOTHING'
+                
+                columns = list(self.data[0].keys())
                 with StringIO(newline='') as sio:
                     dict_writer = csv.DictWriter(sio, columns)
                     dict_writer.writeheader()
