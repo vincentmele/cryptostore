@@ -115,7 +115,7 @@ class TimescaleDB(Store):
                     f'price NUMERIC, ' \
                     f'receipt_timestamp TIMESTAMPTZ, ' \
                     f'PRIMARY KEY (timestamp, feed, pair), ' \
-                    f'CONSTRAINT unique_trades_const UNIQUE (timestamp, feed, pair, idx)' \
+                    f'UNIQUE (timestamp, feed, pair, idx)' \
                     f');'
         elif data_type == TICKER:
             query = f'CREATE TABLE IF NOT EXISTS {table} (' \
@@ -140,7 +140,7 @@ class TimescaleDB(Store):
                     f'size NUMERIC, ' \
                     f'price NUMERIC, ' \
                     f'receipt_timestamp TIMESTAMPTZ, ' \
-                    f'CONSTRAINT unique_{data_type}_const UNIQUE (timestamp, feed, pair, idx)' \
+                    f'UNIQUE (timestamp, feed, pair, idx)' \
                     f');'
         elif data_type == FUNDING:
             return NotImplemented  # TODO: Seems to need to store arbitrary key/value pairs, see influx.py?
