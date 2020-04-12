@@ -7,18 +7,15 @@ associated with this software.
 Contributed by Vincent Mele <vincentmele@gmail.com>
 '''
 import logging
-
+import timeit
 from datetime import timezone, datetime as dt
 
-from cryptofeed.defines import TRADES, L2_BOOK, L3_BOOK, TICKER, FUNDING, OPEN_INTEREST
-
-from cryptostore.data.store import Store
-# from cryptostore.engines import StorageEngines
-
 import psycopg2
+from cryptofeed.defines import TRADES, L2_BOOK, L3_BOOK, TICKER, FUNDING, OPEN_INTEREST
 from psycopg2.extras import execute_values
 
-import timeit
+from cryptostore.data.store import Store
+
 
 LOG = logging.getLogger('cryptostore')
 
@@ -258,29 +255,3 @@ class TimescaleDB(Store):
             print(f'Error get_start_date: {e}')
         except Exception:
             return None
-
-
-"""            # old code to possibly use csv import for bulk loading, probably should use asuncpg instead
-                
-                # use copy_from instead of executemany to ease the strain on the database server importing the data
-
-               # tmp_table_query = f'INSERT INTO {table} ' \
-               #                   f'SELECT DISTINCT ON (time) * ' \
-               #                   f'FROM source ON CONFLICT DO NOTHING'
-                
-                columns = list(self.data[0].keys())
-                with StringIO(newline='') as sio:
-                    dict_writer = csv.DictWriter(sio, columns)
-                    dict_writer.writeheader()
-                    dict_writer.writerows(c)
-                    sio.seek(0)
-
-                    cur.execute('CREATE TEMP TABLE source(LIKE %s INCLUDING ALL) ON COMMIT DROP;' % table);
-
-                    copy_sql = "COPY source FROM stdin WITH CSV HEADER DELIMITER as ','"
-                    cur.copy_expert(sql=copy_sql, file=sio)
-
-                    cur.execute(tmp_table_query)
-                    cur.execute('DROP TABLE source')
-                    self.conn.commit()
-"""
