@@ -26,6 +26,7 @@ class Redis(Cache):
         self.last_id = {}
         self.ids = defaultdict(list)
         self.conn = StorageEngines.redis.Redis(ip, port, unix_socket_path=socket, decode_responses=True)
+        self.error_last_read = True
         if flush:
             LOG.info('Flushing cache')
             self.conn.flushall()
