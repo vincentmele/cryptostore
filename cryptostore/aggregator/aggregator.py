@@ -87,16 +87,24 @@ class Aggregator(Process):
                             for pair in self.config.exchanges[exchange][dtype] if 'symbols' not in self.config.exchanges[exchange][dtype] else self.config.exchanges[exchange][dtype]['symbols']:
                                 store = Storage(self.config)
                                 LOG.info('Reading %s-%s-%s', exchange, dtype, pair)
+                                if cache.error_last_read is False or len(cache.last_id) == 0:
+                                    last_id = cache.last_id.copy()
+
                                 data = cache.read(exchange, dtype, pair, start=start, end=end)
                                 if len(data) == 0:
                                     LOG.info('No data for %s-%s-%s', exchange, dtype, pair)
                                     continue
+                                try:
+                                    store.aggregate(data)
+                                    store.write(exchange, dtype, pair, time.time())
 
-                                store.aggregate(data)
-                                store.write(exchange, dtype, pair, time.time())
-
-                                cache.delete(exchange, dtype, pair)
-                                LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
+                                    cache.delete(exchange, dtype, pair)
+                                    cache.error_last_read = False
+                                    LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
+                                except Exception as e:
+                                    LOG.info(f'Error inserting into persistent storage. Will try again in next interval. Exception: {e}')
+                                    cache.error_last_read = True
+                                    cache.last_id = last_id.copy()
                     total = time.time() - aggregation_start
                     wait = interval - total
                     if wait <= 0:
