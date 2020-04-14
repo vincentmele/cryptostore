@@ -9,6 +9,7 @@ from cryptostore.data.parquet import Parquet
 from cryptostore.data.arctic import Arctic
 from cryptostore.data.influx import InfluxDB
 from cryptostore.data.elastic import ElasticSearch
+from cryptostore.data.timescaledb import TimescaleDB
 
 
 class Storage(Store):
@@ -29,6 +30,8 @@ class Storage(Store):
             return InfluxDB(config.influx)
         elif store == 'elastic':
             return ElasticSearch(config.elastic)
+        elif store == 'timescaledb':
+            return TimescaleDB(config.timescaledb)
         else:
             raise ValueError("Store type not supported")
 

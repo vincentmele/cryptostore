@@ -44,6 +44,7 @@ setup(
         'redis': ['redis', 'aioredis'],
         'kafka': ['aiokafka', 'confluent-kafka'],
         'arctic': ['arctic'],
+        'timescaledb': ['psycopg2'],
         'gcs': ['google-cloud-storage'],
         'aws': ['boto3'],
         'zmq': ['pyzmq']
