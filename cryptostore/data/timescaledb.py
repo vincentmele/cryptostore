@@ -65,7 +65,7 @@ class TimescaleDB(Store):
 
             if data_type == L2_BOOK or data_type == L3_BOOK or data_type == TRADES:
                 idx = used_ts.get(entry['timestamp'], 0)
-                entry['idx'] = None if idx == 0 else idx
+                entry['idx'] = idx # NULL is treated as distinct value, so breaks unique index.
                 used_ts[entry['timestamp']] = idx + 1
 
             entry['timestamp'] = dt.fromtimestamp(entry['timestamp'], timezone.utc)
@@ -194,7 +194,7 @@ class TimescaleDB(Store):
             if id in self.data:
                 insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, idx, side, id, amount, price, receipt_timestamp) VALUES  %s " \
                              f"ON CONFLICT DO NOTHING"
-                template = '(%(timestamp)s, %(feed)s, %(pair)s, %(idx), %(side)s, %(id)s, %(amount)s, %(price)s, %(receipt_timestamp)s)'
+                template = '(%(timestamp)s, %(feed)s, %(pair)s, %(idx)s, %(side)s, %(id)s, %(amount)s, %(price)s, %(receipt_timestamp)s)'
             else:
                 insert_sql = f"INSERT INTO {table} (timestamp, feed, pair, idx, side, amount, price, receipt_timestamp) VALUES  %s " \
                              f"ON CONFLICT DO NOTHING"
