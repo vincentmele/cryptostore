@@ -35,10 +35,11 @@ class Redis(Cache):
     def read(self, exchange, dtype, pair, start=None, end=None):
         key = f'{dtype}-{exchange}-{pair}'
 
-        if start and end:
-            data = [[key, self.conn.xrange(key, min=start, max=end)]]
-        else:
-            data = self.conn.xread({key: '0-0' if key not in self.last_id else self.last_id[key]})
+        #if start and end:
+        #    data = [[key, self.conn.xrange(key, min=start, max=end)]]
+        #else:
+           # data = self.conn.xread({key: '0-0' if key not in self.last_id else self.last_id[key]})
+        data = self.conn.xread({key: '0-0'})
 
         if len(data) == 0 or len(data[0][1]) == 0:
             return []
