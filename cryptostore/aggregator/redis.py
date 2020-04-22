@@ -20,13 +20,14 @@ LOG = logging.getLogger('cryptostore')
 
 
 class Redis(Cache):
-    def __init__(self, ip=None, port=None, socket=None, del_after_read=True, flush=False, retention=None):
+    def __init__(self, ip=None, port=None, socket=None, del_after_read=True, flush=False, retention=None, batch_size=None):
         self.del_after_read = del_after_read
         self.retention = retention
         self.last_id = {}
         self.ids = defaultdict(list)
         self.conn = StorageEngines.redis.Redis(ip, port, unix_socket_path=socket, decode_responses=True)
         self.error_last_read = True
+        self.batch_size = batch_size
         if flush:
             LOG.info('Flushing cache')
             self.conn.flushall()
@@ -37,6 +38,8 @@ class Redis(Cache):
 
         if start and end:
             data = [[key, self.conn.xrange(key, min=start, max=end)]]
+        elif self.batch_size:
+            data = [[key, self.conn.xrange(key, count=self.batch_size)]]
         else:
             data = self.conn.xread({key: '0-0' if key not in self.last_id else self.last_id[key]})
 
