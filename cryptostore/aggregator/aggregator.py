@@ -46,7 +46,8 @@ class Aggregator(Process):
                           socket=self.config.redis.socket,
                           del_after_read=self.config.redis['del_after_read'],
                           flush=self.config.redis['start_flush'],
-                          retention=self.config.redis.retention_time if 'retention_time' in self.config.redis else None)
+                          retention=self.config.redis.retention_time if 'retention_time' in self.config.redis else None,
+                          batch_size=self.config.redis.batch_size if 'batch_size' in self.config.redis else None)
         elif self.config.cache == 'kafka':
             cache = Kafka(self.config.kafka['ip'],
                           self.config.kafka['port'],
@@ -90,21 +91,24 @@ class Aggregator(Process):
                                 if cache.error_last_read is False or len(cache.last_id) == 0:
                                     last_id = cache.last_id.copy()
 
-                                data = cache.read(exchange, dtype, pair, start=start, end=end)
-                                if len(data) == 0:
-                                    LOG.info('No data for %s-%s-%s', exchange, dtype, pair)
-                                    continue
-                                try:
-                                    store.aggregate(data)
-                                    store.write(exchange, dtype, pair, time.time())
+                                data = cache.read(exchange, dtype, pair)
+                                while data:
+                                    if len(data) == 0:
+                                        LOG.info('No data for %s-%s-%s', exchange, dtype, pair)
+                                        continue
+                                    try:
+                                        store.aggregate(data)
+                                        store.write(exchange, dtype, pair, time.time())
 
-                                    cache.delete(exchange, dtype, pair)
-                                    cache.error_last_read = False
-                                    LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
-                                except Exception as e:
-                                    LOG.info(f'Error inserting into persistent storage. Will try again in next interval. Exception: {e}')
-                                    cache.error_last_read = True
-                                    cache.last_id = last_id.copy()
+                                        cache.delete(exchange, dtype, pair)
+                                        cache.error_last_read = False
+                                        data = cache.read(exchange, dtype, pair)
+                                        LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
+                                    except Exception as e:
+                                        LOG.info(f'Error inserting into persistent storage. Will try again in next interval. Exception: {e}')
+                                        cache.error_last_read = True
+                                        cache.last_id = last_id.copy()
+                                        data = None
                     total = time.time() - aggregation_start
                     wait = interval - total
                     if wait <= 0:
