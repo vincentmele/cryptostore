@@ -95,7 +95,9 @@ class Aggregator(Process):
                                 while data:
                                     if len(data) == 0:
                                         LOG.info('No data for %s-%s-%s', exchange, dtype, pair)
-                                        continue
+                                        break
+                                    elif len(data) < cache.batch_size:
+                                        break
                                     try:
                                         store.aggregate(data)
                                         store.write(exchange, dtype, pair, time.time())
