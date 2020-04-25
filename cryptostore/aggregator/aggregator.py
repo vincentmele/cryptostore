@@ -70,6 +70,7 @@ class Aggregator(Process):
                 else:
                     interval = 86400 * multiplier
 
+        store = Storage(self.config)
         while True:
             start, end = None, None
             try:
@@ -86,7 +87,6 @@ class Aggregator(Process):
                             if dtype in {'retries', 'channel_timeouts'}:
                                 continue
                             for pair in self.config.exchanges[exchange][dtype] if 'symbols' not in self.config.exchanges[exchange][dtype] else self.config.exchanges[exchange][dtype]['symbols']:
-                                store = Storage(self.config)
                                 LOG.info('Reading %s-%s-%s', exchange, dtype, pair)
                                 if cache.error_last_read is False or len(cache.last_id) == 0:
                                     last_id = cache.last_id.copy()
