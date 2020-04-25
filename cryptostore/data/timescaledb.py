@@ -34,7 +34,7 @@ class TimescaleDB(Store):
         self.page_size = config.get('page_size', 5000)
         self.chunk_interval = config.get('chunk_interval', 12)  # in hours
         self.table = None
-        self.table_exists = False
+        self.table_exists = {}
         self.conn = None  # StorageEngines.timescaledb.TimeseriesDB(connection)
         self._connect()
 
@@ -86,17 +86,17 @@ class TimescaleDB(Store):
         return self.table
 
     def _create_table_if_not_exists(self, data_type, table):
-        if self.table_exists:
+        if self.table_exists.get(table):
             return True
         else:
             with self.conn.cursor() as cur:
                 cur.execute('SELECT to_regclass(%s);', (table,))
                 if cur.fetchone()[0] is not None:
-                    self.table_exists = True
+                    self.table_exists[table] = True
                     return True
 
             self._create_table(data_type, table)
-            self.table_exists = True
+            self.table_exists[table] = True
 
     def _create_table(self, data_type, table):
         query = ''
