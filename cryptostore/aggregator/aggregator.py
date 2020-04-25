@@ -93,11 +93,12 @@ class Aggregator(Process):
 
                                 data = cache.read(exchange, dtype, pair)
                                 while data:
+                                    exit_after = False
                                     if len(data) == 0:
                                         LOG.info('No data for %s-%s-%s', exchange, dtype, pair)
                                         break
                                     elif len(data) < cache.batch_size:
-                                        break
+                                        exit_after = True
                                     try:
                                         store.aggregate(data)
                                         store.write(exchange, dtype, pair, time.time())
@@ -106,11 +107,14 @@ class Aggregator(Process):
                                         cache.error_last_read = False
                                         data = cache.read(exchange, dtype, pair)
                                         LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
+                                        if exit_after:
+                                            break
                                     except Exception as e:
-                                        LOG.info(f'Error inserting into persistent storage. Will try again in next interval. Exception: {e}')
+                                        LOG.info(f'Error inserting into persistent storage. Will try again in next interval.')
                                         cache.error_last_read = True
                                         cache.last_id = last_id.copy()
                                         data = None
+                                        break
                     total = time.time() - aggregation_start
                     wait = interval - total
                     if wait <= 0:

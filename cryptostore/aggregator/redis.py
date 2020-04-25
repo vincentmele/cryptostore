@@ -20,7 +20,7 @@ LOG = logging.getLogger('cryptostore')
 
 
 class Redis(Cache):
-    def __init__(self, ip=None, port=None, socket=None, del_after_read=True, flush=False, retention=None, batch_size=None):
+    def __init__(self, ip=None, port=None, socket=None, del_after_read=True, flush=False, retention=None, batch_size=50000):
         self.del_after_read = del_after_read
         self.retention = retention
         self.last_id = {}
