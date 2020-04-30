@@ -70,6 +70,15 @@ class Collector(Process):
                 funding_cb = FundingKafka
                 oi_cb = OpenInterestKafka
                 kwargs = {'host': self.config['kafka']['ip'], 'port': self.config['kafka']['port']}
+            elif cache == 'rabbitmq':
+                from cryptofeed.backends.rabbitmq import TradeRabbit, BookRabbit, BookDeltaRabbit, TickerRabbit, FundingRabbit, OpenInterestRabbit
+                trade_cb = TradeRabbit
+                book_cb = BookRabbit
+                book_up = BookDeltaRabbit if delta else None
+                ticker_cb = TickerRabbit
+                funding_cb = FundingRabbit
+                oi_cb = OpenInterestRabbit
+                kwargs = {'host': self.config['rabbitmq']['ip']}
 
             if callback_type == TRADES:
                 cb[TRADES] = [trade_cb(**kwargs)]

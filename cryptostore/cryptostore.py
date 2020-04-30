@@ -78,8 +78,8 @@ class Cryptostore:
         self.spawner.start()
         LOG.info("Spawner started")
 
-        self.aggregator = Aggregator(config_file=self.cfg_path)
-        self.aggregator.start()
+  #      self.aggregator = Aggregator(config_file=self.cfg_path)
+    #    self.aggregator.start()
         LOG.info("Aggregator started")
 
         loop = asyncio.get_event_loop()
