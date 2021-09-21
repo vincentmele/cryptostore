@@ -1,7 +1,46 @@
 ## Changelog
 
-### 0.3.0
+### 0.4.0
+  * Feature: Support for Coingecko aggregated data per coin, to be used with a new data channel 'market_info'
+  * Feature: Config.yaml supports individual exchange's Feed class params. 
+  * Feature: Support for 'http_proxy' in exchanges config. 
+  * Bugfix: Update aggregator util functions for level 2 and level 3 order book to handle book delta
+
+### 0.3.2 (2021-04-25)
+  * Bugfix: Fix book building example
+  * Feature: Ability to pull config file from S3 bucket instead of local filesystem, polling for updated config is supported.
+  * Feature: Updated to work with latest version of cryptofeed
+  * Feature: Liquidations support for Arctic
+  * Bugfix: Aggregating parquet files at the end of time no longer causes file not found error.
+  * Feature: Temporary parquet files are now gathering in a seperate folder
+  * Bugfix: Parquet column type fix
+  * Bugfix: Fix issue where max depth was being passed incorrectly to cryptofeed
+  * Bugfix: rename kafka host kwarg to bootstrap, as cryptofeed backend expects
+  * Feature: Candles support
+  * Bugfix: Fix l2/l3_book_flatten routines
+  * Feature: Update to work with latest cryptofeed version/changes. Update InfuxDB backend to work with 2.x. Drop support for InfluxDB 1.x
+
+### 0.3.1 (2020-11-14)
+  * Feature: Influxdb 1.x authentication support
+  * Bugfix: Extend timeout of Google Drive connection
+  * Feature: Parquet file compression
+  * Feature: Parquet file content optimization
+  * Feature: Option to enable parquet file appending
+  * Feature: Retry writes to storage engines (rather than dying).
+  * Feature: Support for snapshot_interval
+  * Feature: Parquet files can be stored in directories per day
+  * Bugfix: Set arctic storage quota to unlimited (rather than 10G)
+  * Bugfix: Regression in arctic storage backend
+  * Feature: Opened parquet files (when appended) are suffixed with '.tmp'
+  * Feature: Liquidations support
+
+### 0.3.0 (2020-08-18)
   * Feature: Config options for controlling data channel timeouts
+  * Feature: Path option in config for local parquet storage
+  * Feature: Configurable filenames for parquet storage
+  * Bugfix: Ticker missing from ZMQ pass through
+  * Feature: Store data to Google Drive
+  * Bugfix: Kafka now supports the time interval for storage intervals (feature added in 0.2.1)
 
 ### 0.2.1 (2020-03-17)
   * Feature: Open Interest support
@@ -14,7 +53,7 @@
   * Bugfix: Fixed elasticsearch timestamps
   * Feature: Support for different S3 endpoints to allow writing to other providers
   * Bugfix: Missing config value for redis socket
-  
+
 ### 0.1.1 (2019-11-27)
   * Feature: Rework backfill to operate even when store's data differs
   * Bugfix: Log exception/traceback when aggregator process dies

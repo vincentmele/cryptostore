@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2018-2020  Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2018-2021  Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -16,7 +16,6 @@ from cryptofeed.rest import Rest
 from cryptostore.config import Config
 from cryptostore.plugin.plugin import Plugin
 from cryptostore.data.storage import Storage
-from cryptostore.exceptions import InconsistentStorage
 
 
 LOG = logging.getLogger('cryptostore')

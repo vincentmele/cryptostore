@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2018-2020  Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2018-2021  Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -20,7 +20,7 @@ def _get_bucket(bucket, creds):
 
 def google_cloud_write(bucket, key, data, creds=None):
 
-    blob =  _get_bucket(bucket, creds).blob(key)
+    blob = _get_bucket(bucket, creds).blob(key)
     blob.upload_from_filename(data)
 
 

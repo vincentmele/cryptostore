@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2018-2020  Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2018-2021  Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -27,8 +27,9 @@ def receiver(port):
         print(key)
         print(json.loads(msg))
 
+
 def main():
-    receiver(5678)    
+    receiver(5678)
 
 
 if __name__ == '__main__':

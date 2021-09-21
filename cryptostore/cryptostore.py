@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2018-2020  Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2018-2021  Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -35,7 +35,7 @@ class Cryptostore:
             self.queue.put(json.dumps({'op': 'stop', 'exchange': exchange}))
 
         for exchange in start:
-            self.queue.put(json.dumps({'op': 'start', 'exchange': exchange, 'collector': self.running_config['exchanges'][exchange], 'config': {i : self.running_config[i] for i in self.running_config if i != 'exchanges'}}))
+            self.queue.put(json.dumps({'op': 'start', 'exchange': exchange, 'collector': self.running_config['exchanges'][exchange], 'config': {i: self.running_config[i] for i in self.running_config if i != 'exchanges'}}))
 
     async def _reconfigure(self, config):
         stop = []

@@ -1,5 +1,5 @@
 '''
-Copyright (C) 2018-2020  Bryant Moscon - bmoscon@gmail.com
+Copyright (C) 2018-2021  Bryant Moscon - bmoscon@gmail.com
 
 Please see the LICENSE file for the terms and conditions
 associated with this software.
@@ -16,6 +16,7 @@ from cryptostore.aggregator.redis import Redis
 from cryptostore.aggregator.kafka import Kafka
 from cryptostore.data.storage import Storage
 from cryptostore.config import DynamicConfig
+from cryptostore.exceptions import EngineWriteError
 
 
 LOG = logging.getLogger('cryptostore')
@@ -69,6 +70,7 @@ class Aggregator(Process):
                 else:
                     interval = 86400 * multiplier
 
+        parquet_buffer = dict()
         while True:
             start, end = None, None
             try:
@@ -79,13 +81,13 @@ class Aggregator(Process):
                         interval_start = end + timedelta(seconds=interval + 1)
                     start, end = get_time_interval(interval_start, base_interval, multiplier=multiplier)
                 if 'exchanges' in self.config and self.config.exchanges:
+                    store = Storage(self.config, parquet_buffer=parquet_buffer)
                     for exchange in self.config.exchanges:
                         for dtype in self.config.exchanges[exchange]:
                             # Skip over the retries arg in the config if present.
-                            if dtype in {'retries', 'channel_timeouts'}:
+                            if dtype in {'retries', 'channel_timeouts', 'http_proxy'}:
                                 continue
                             for pair in self.config.exchanges[exchange][dtype] if 'symbols' not in self.config.exchanges[exchange][dtype] else self.config.exchanges[exchange][dtype]['symbols']:
-                                store = Storage(self.config)
                                 LOG.info('Reading %s-%s-%s', exchange, dtype, pair)
                                 data = cache.read(exchange, dtype, pair, start=start, end=end)
                                 if len(data) == 0:
@@ -93,7 +95,32 @@ class Aggregator(Process):
                                     continue
 
                                 store.aggregate(data)
-                                store.write(exchange, dtype, pair, time.time())
+
+                                retries = 0
+                                while True:
+                                    if retries > self.config.storage_retries:
+                                        LOG.error("Failed to write after %d retries", self.config.storage_retries)
+                                        raise EngineWriteError
+
+                                    try:
+                                        # retrying this is ok, provided every
+                                        # engine clears its internal buffer after writing successfully.
+                                        store.write(exchange, dtype, pair, time.time())
+                                    except OSError as e:
+                                        if e.errno == 112:  # Host is down
+                                            LOG.warning('Could not write %s-%s-%s. %s', exchange, dtype, pair, e)
+                                            retries += 1
+                                            await asyncio.sleep(self.config.storage_retry_wait)
+                                            continue
+                                        else:
+                                            raise
+
+                                    except EngineWriteError:
+                                        retries += 1
+                                        await asyncio.sleep(self.config.storage_retry_wait)
+                                        continue
+                                    else:
+                                        break
 
                                 cache.delete(exchange, dtype, pair)
                                 LOG.info('Write Complete %s-%s-%s', exchange, dtype, pair)
