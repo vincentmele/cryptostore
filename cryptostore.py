@@ -18,7 +18,7 @@ from cryptofeed.backends.postgres import BookPostgres, TradePostgres, TickerPost
 from cryptofeed.backends.socket import BookSocket, TradeSocket, TickerSocket, FundingSocket, CandlesSocket, OpenInterestSocket, LiquidationsSocket
 from cryptofeed.backends.influxdb import BookInflux, TradeInflux, TickerInflux, FundingInflux, CandlesInflux, OpenInterestInflux, LiquidationsInflux
 from cryptofeed.backends.quest import BookQuest, TradeQuest, TickerQuest, FundingQuest, CandlesQuest, OpenInterestQuest, LiquidationsQuest
-
+from cryptofeed.backends.rabbitmq import BookRabbit, TradeRabbit, TickerRabbit, FundingRabbit, CandlesRabbit, OpenInterestRabbit, LiquidationsRabbit
 
 async def tty(obj, receipt_ts):
     # For debugging purposes
@@ -64,7 +64,7 @@ def load_config() -> Feed:
     token = os.environ.get('TOKEN')
 
     cbs = None
-    allowed_backends = ['REDIS', 'REDISSTREAM', 'MONGO', 'POSTGRES', 'TCP', 'UDP', 'UDS', 'INFLUX', 'QUEST', 'TTY']
+    allowed_backends = ['REDIS', 'REDISSTREAM', 'MONGO', 'POSTGRES', 'TCP', 'UDP', 'UDS', 'INFLUX', 'QUEST', 'RABBITMQ', 'TTY']
     if backend in allowed_backends:
         if backend == 'REDIS' or backend == 'REDISSTREAM':
             kwargs = {'host': host, 'port': port if port else 6379}
@@ -131,6 +131,17 @@ def load_config() -> Feed:
                 CANDLES: CandlesQuest(**kwargs),
                 OPEN_INTEREST: OpenInterestQuest(**kwargs),
                 LIQUIDATIONS: LiquidationsQuest(**kwargs)
+            }
+        elif backend == 'RABBITMQ':
+            kwargs = {'host': host, 'port': port if port else 5672}
+            cbs = {
+                L2_BOOK: BookRabbit(snapshot_interval=snap_interval, snapshots_only=snap_only, **kwargs),
+                TRADES: TradeRabbit(**kwargs),
+                TICKER: TickerRabbit(**kwargs),
+                FUNDING: FundingRabbit(**kwargs),
+                CANDLES: CandlesRabbit(**kwargs),
+                OPEN_INTEREST: OpenInterestRabbit(**kwargs),
+                LIQUIDATIONS: LiquidationsRabbit(**kwargs)
             }
         elif backend == 'TTY':
             cbs = {
